@@ -1,0 +1,111 @@
+================================================================================
+                     CO2 FAN CONTROLLER - QUICK REFERENCE
+================================================================================
+
+HARDWARE CONNECTIONS
+--------------------
+
+  ESP32-POE-ISO              SCD-40 Sensor           Relay Module
+  +-------------+            +----------+            +----------+
+  | GPIO13 (SDA)|---Blue---->| SDA      |            |          |
+  | GPIO16 (SCL)|---Yellow-->| SCL      |            |          |
+  | 3.3V        |---Red----->| VIN      |---Red----->| VCC      |
+  | GND         |---Black--->| GND      |---Black--->| GND      |
+  | GPIO4       |---------------------------------->| IN       |
+  | RJ45        |<-- PoE Ethernet Cable             |          |
+  +-------------+            +----------+            | COM  NO  |
+                                                     +--+---+---+
+                                                        |   |
+  110V AC SIDE (DANGER!)                               |   |
+  ----------------------                               |   |
+  Hot (Black)  ----------------------------------------+   |
+  To Fan Hot   <-------------------------------------------+
+  Neutral (White) -----> Direct to Fan Neutral
+  Ground (Green)  -----> Direct to Fan Ground
+
+
+PIN REFERENCE - OLIMEX ESP32-POE-ISO
+------------------------------------
+
+  I2C (UEXT Connector):
+    SDA = GPIO13
+    SCL = GPIO16
+    
+  Relay Control:
+    GPIO4 (default, configurable)
+    
+  Ethernet:
+    MDC  = GPIO23
+    MDIO = GPIO18
+    CLK  = GPIO17
+    PWR  = GPIO12
+
+
+DEFAULT SETTINGS
+----------------
+
+  CO2 ON Threshold:   1000 ppm (fan turns ON above this)
+  CO2 OFF Threshold:   800 ppm (fan turns OFF below this)
+  Measurement Rate:     30 seconds
+
+
+WEB INTERFACE
+-------------
+
+  Dashboard:    http://<device-ip>/
+  Status API:   GET  /api/status
+  Config API:   POST /api/config?co2_on=1000&co2_off=800
+  Fan Control:  POST /api/fan?state=on|off
+
+
+LED INDICATORS
+--------------
+
+  Relay Module Red LED:  ON = Fan Running
+  ETH Link Light:        Solid = Connected
+  ETH Activity Light:    Blinking = Data transfer
+
+
+TROUBLESHOOTING
+---------------
+
+  No IP Address:
+    - Check PoE switch is 802.3af compliant
+    - Try different ethernet cable
+    - Verify link lights on RJ45 jack
+    
+  Sensor Error:
+    - Verify SDA/SCL wiring
+    - Check 3.3V power to sensor
+    - I2C address should be 0x62
+    
+  Fan Not Working:
+    - Check relay VCC voltage (3.3V or 5V)
+    - Test GPIO4 with multimeter
+    - Verify relay contacts rated for load
+
+
+SAFETY REMINDERS
+----------------
+
+  [!] TURN OFF BREAKER before AC wiring
+  [!] Use proper gauge wire (14 AWG for 15A, 12 AWG for 20A)
+  [!] Install GFCI in wet locations
+  [!] Relay must be rated 10A @ 120VAC minimum
+  [!] Separate low-voltage and high-voltage in enclosure
+
+
+CO2 LEVEL GUIDE
+---------------
+
+  400-600 ppm   = Excellent (outdoor air)
+  600-800 ppm   = Good (well ventilated)
+  800-1000 ppm  = Moderate (ventilate soon)
+  1000-1500 ppm = Poor (ventilate now)
+  1500+ ppm     = Bad (immediate action)
+
+
+================================================================================
+                         Mike Morris - Quick SCIF LLC
+                              GNU GPL License
+================================================================================

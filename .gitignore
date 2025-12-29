@@ -1,0 +1,22 @@
+# ESPHome
+.esphome/
+secrets.yaml
+
+# Arduino
+*.elf
+*.bin
+*.map
+.pio/
+.vscode/
+
+# Build artifacts
+build/
+__pycache__/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Secrets
+*.key
+*.pem

@@ -1,0 +1,300 @@
+# CO2 Fan Controller - ESPHome Configuration
+# Olimex ESP32-POE-ISO with SCD-40 CO2 Sensor and Relay
+#
+# File Name      : co2-fan-controller.yaml
+# Author         : Mike Morris
+# Prerequisite   : ESPHome 2024.x+
+# Copyright      : (c) 2024 Mike Morris
+# License        : GNU GPL
+#
+# Hardware:
+#   - Olimex ESP32-POE-ISO (or ESP32-POE)
+#   - Adafruit SCD-40 CO2 Sensor (#5187)
+#   - 10A Relay Module (connected to GPIO4)
+#
+# Wiring:
+#   SCD-40 -> ESP32-POE UEXT connector or direct:
+#     VIN  -> 3.3V
+#     GND  -> GND
+#     SDA  -> GPIO13
+#     SCL  -> GPIO16
+#
+#   Relay Module:
+#     VCC  -> 3.3V (or 5V if module requires)
+#     GND  -> GND
+#     IN   -> GPIO4
+#
+# Installation:
+#   1. Install ESPHome: pip install esphome
+#   2. Edit secrets.yaml with your credentials
+#   3. Run: esphome run co2-fan-controller.yaml
+
+substitutions:
+  device_name: co2-fan-controller
+  friendly_name: "CO2 Fan Controller"
+  # Default thresholds (can be changed via web UI or Home Assistant)
+  default_co2_on_threshold: "1000"   # PPM to turn fan ON
+  default_co2_off_threshold: "800"   # PPM to turn fan OFF (hysteresis)
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  comment: "CO2-controlled ventilation fan with PoE"
+  on_boot:
+    priority: -100
+    then:
+      - logger.log: "CO2 Fan Controller booted successfully"
+
+esp32:
+  board: esp32-poe-iso
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+  level: INFO
+  logs:
+    component: ERROR  # Reduce noise from component updates
+
+# Enable Home Assistant API (optional - comment out if not using HA)
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+# Enable OTA updates
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+# =============================================================================
+# TAILSCALE/WIREGUARD SUPPORT
+# =============================================================================
+# Option 1: Connect via WireGuard to a Tailscale subnet router
+# This is the most stable approach for getting ESP32 on your tailnet.
+#
+# Setup steps:
+#   1. On a machine already on your tailnet, run:
+#      tailscale up --advertise-routes=10.13.13.0/24 --accept-routes
+#   2. In Tailscale admin, approve the subnet route
+#   3. Generate a WireGuard config for the ESP32 (see docs/TAILNET_SETUP.md)
+#   4. Fill in the secrets below
+#
+# The ESP32 gets a static IP in the 10.13.13.x range, which is then
+# accessible from any device on your tailnet.
+# =============================================================================
+
+wireguard:
+  address: 10.13.13.10  # Static IP for this device in WG subnet
+  private_key: !secret wg_private_key
+  peer_endpoint: !secret wg_peer_endpoint  # e.g., "your-tailscale-node:51820"
+  peer_public_key: !secret wg_peer_public_key
+  peer_allowed_ips:
+    - 0.0.0.0/0  # Route all traffic through WireGuard (or limit to tailnet)
+  peer_persistent_keepalive: 25s
+  
+  # Reboot if WireGuard connection fails for too long
+  reboot_timeout: 15min
+
+# Ethernet configuration for Olimex ESP32-POE-ISO
+ethernet:
+  type: LAN8720
+  mdc_pin: GPIO23
+  mdio_pin: GPIO18
+  clk_mode: GPIO17_OUT
+  phy_addr: 0
+  power_pin: GPIO12
+
+# Fallback WiFi (optional - if you want WiFi backup)
+# wifi:
+#   ssid: !secret wifi_ssid
+#   password: !secret wifi_password
+#   ap:
+#     ssid: "${device_name}-fallback"
+#     password: !secret fallback_password
+
+# Web server for local control (no Home Assistant required)
+web_server:
+  port: 80
+  auth:
+    username: admin
+    password: !secret web_password
+  local: true
+
+# I2C bus configuration for SCD-40 sensor
+# Using UEXT connector pins on ESP32-POE
+i2c:
+  sda: GPIO13
+  scl: GPIO16
+  scan: true
+  id: i2c_bus
+
+# Global variables for threshold storage (persisted across reboots)
+globals:
+  - id: co2_threshold_on
+    type: int
+    restore_value: true
+    initial_value: ${default_co2_on_threshold}
+  
+  - id: co2_threshold_off
+    type: int
+    restore_value: true
+    initial_value: ${default_co2_off_threshold}
+
+# Number inputs for configuring thresholds via web UI
+number:
+  - platform: template
+    name: "CO2 On Threshold"
+    id: co2_on_threshold_input
+    icon: "mdi:arrow-up-bold"
+    unit_of_measurement: "ppm"
+    min_value: 400
+    max_value: 2000
+    step: 50
+    optimistic: true
+    restore_value: true
+    initial_value: ${default_co2_on_threshold}
+    on_value:
+      then:
+        - globals.set:
+            id: co2_threshold_on
+            value: !lambda 'return (int)x;'
+        - logger.log:
+            format: "CO2 ON threshold set to %d ppm"
+            args: ['(int)x']
+
+  - platform: template
+    name: "CO2 Off Threshold"
+    id: co2_off_threshold_input
+    icon: "mdi:arrow-down-bold"
+    unit_of_measurement: "ppm"
+    min_value: 400
+    max_value: 2000
+    step: 50
+    optimistic: true
+    restore_value: true
+    initial_value: ${default_co2_off_threshold}
+    on_value:
+      then:
+        - globals.set:
+            id: co2_threshold_off
+            value: !lambda 'return (int)x;'
+        - logger.log:
+            format: "CO2 OFF threshold set to %d ppm"
+            args: ['(int)x']
+
+# Sensors
+sensor:
+  # SCD-40 CO2, Temperature, and Humidity sensor
+  - platform: scd4x
+    co2:
+      name: "CO2"
+      id: co2_sensor
+      on_value:
+        then:
+          - lambda: |-
+              int co2_ppm = (int)id(co2_sensor).state;
+              int threshold_on = id(co2_threshold_on);
+              int threshold_off = id(co2_threshold_off);
+              
+              // Hysteresis logic: turn ON above threshold_on, turn OFF below threshold_off
+              if (co2_ppm >= threshold_on && !id(ventilation_fan).state) {
+                id(ventilation_fan).turn_on();
+                ESP_LOGI("co2_control", "CO2 at %d ppm - Fan ON (threshold: %d)", co2_ppm, threshold_on);
+              } else if (co2_ppm <= threshold_off && id(ventilation_fan).state) {
+                id(ventilation_fan).turn_off();
+                ESP_LOGI("co2_control", "CO2 at %d ppm - Fan OFF (threshold: %d)", co2_ppm, threshold_off);
+              }
+    
+    temperature:
+      name: "Temperature"
+      id: temperature_sensor
+    
+    humidity:
+      name: "Humidity"
+      id: humidity_sensor
+    
+    # Measurement settings
+    update_interval: 30s
+    measurement_mode: periodic
+    ambient_pressure_compensation_source: none
+    # Automatic self-calibration (assumes fresh air exposure weekly)
+    automatic_self_calibration: true
+
+  # Uptime sensor
+  - platform: uptime
+    name: "Uptime"
+    update_interval: 60s
+
+  # WiFi signal (if using WiFi backup)
+  # - platform: wifi_signal
+  #   name: "WiFi Signal"
+  #   update_interval: 60s
+
+# Binary sensors
+binary_sensor:
+  # Connection status
+  - platform: status
+    name: "Status"
+
+# Relay switch for ventilation fan
+switch:
+  - platform: gpio
+    pin: GPIO4
+    name: "Ventilation Fan"
+    id: ventilation_fan
+    icon: "mdi:fan"
+    # Restore state after reboot (default OFF for safety)
+    restore_mode: ALWAYS_OFF
+    on_turn_on:
+      then:
+        - logger.log: "Ventilation fan turned ON"
+    on_turn_off:
+      then:
+        - logger.log: "Ventilation fan turned OFF"
+
+  # Manual override switch
+  - platform: template
+    name: "Auto Mode"
+    id: auto_mode
+    icon: "mdi:robot"
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    # When auto mode is OFF, the CO2 logic is bypassed
+
+# Button for manual calibration
+button:
+  - platform: template
+    name: "Force Calibration"
+    icon: "mdi:refresh"
+    on_press:
+      then:
+        - scd4x.perform_forced_calibration:
+            value: 420  # Fresh outdoor air is ~420 ppm
+            id: co2_sensor
+        - logger.log: "Forced calibration initiated at 420 ppm"
+
+  - platform: restart
+    name: "Restart Device"
+
+# Text sensors for status display
+text_sensor:
+  - platform: template
+    name: "Fan Status"
+    id: fan_status
+    icon: "mdi:fan"
+    lambda: |-
+      if (!id(auto_mode).state) {
+        return {"Manual Mode"};
+      } else if (id(ventilation_fan).state) {
+        return {"Running (High CO2)"};
+      } else {
+        return {"Standby (CO2 OK)"};
+      }
+    update_interval: 5s
+
+  - platform: version
+    name: "ESPHome Version"
+
+  - platform: ethernet_info
+    ip_address:
+      name: "IP Address"
