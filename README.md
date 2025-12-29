@@ -39,6 +39,18 @@ A smart ventilation controller that monitors CO2 levels and automatically activa
 
 **PoE Switch**: Any 802.3af (PoE) or 802.3at (PoE+) switch will work. The ESP32-POE-ISO draws about 3W.
 
+## Wiring Photos
+
+> **TODO**: Add Fritzing breadboard diagram exports here
+>
+> To create: Open Fritzing → Build circuit → File → Export → As Image (PNG)
+> Save to `docs/images/` and uncomment the lines below:
+
+<!--
+![Breadboard Wiring](docs/images/fritzing-breadboard.png)
+![Schematic](docs/images/fritzing-schematic.png)
+-->
+
 ## System Architecture
 
 ```mermaid
