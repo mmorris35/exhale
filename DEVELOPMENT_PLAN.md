@@ -45,34 +45,34 @@ please re-read CLAUDE.md and DEVELOPMENT_PLAN.md (the entire documents, for cont
 ## Progress Tracking
 
 ### Phase 0: Project Setup
-- [ ] 0.1.1: Initialize Git Repository
-- [ ] 0.1.2: ESPHome Project Structure
-- [ ] 0.1.3: Arduino Project Structure
+- [x] 0.1.1: Initialize Git Repository
+- [x] 0.1.2: ESPHome Project Structure
+- [x] 0.1.3: Arduino Project Structure
 
 ### Phase 1: Hardware Validation
-- [ ] 1.1.1: Ethernet/PoE Connectivity
-- [ ] 1.1.2: I2C Bus and SCD-40 Sensor
-- [ ] 1.1.3: Relay GPIO Control
+- [x] 1.1.1: Ethernet/PoE Connectivity (test sketch created)
+- [x] 1.1.2: I2C Bus and SCD-40 Sensor (test sketch created)
+- [x] 1.1.3: Relay GPIO Control (test sketch created)
 
 ### Phase 2: Core Firmware (ESPHome)
-- [ ] 2.1.1: Sensor Integration
-- [ ] 2.1.2: Hysteresis Control Logic
-- [ ] 2.1.3: Web Dashboard
-- [ ] 2.2.1: WireGuard Configuration
-- [ ] 2.2.2: Persistent Storage
+- [x] 2.1.1: Sensor Integration
+- [x] 2.1.2: Hysteresis Control Logic
+- [x] 2.1.3: Web Dashboard
+- [x] 2.2.1: WireGuard Configuration
+- [x] 2.2.2: Persistent Storage
 
 ### Phase 3: Arduino Alternative
-- [ ] 3.1.1: Ethernet and Web Server
-- [ ] 3.1.2: Sensor and Control Logic
-- [ ] 3.1.3: Embedded HTML Dashboard
+- [x] 3.1.1: Ethernet and Web Server
+- [x] 3.1.2: Sensor and Control Logic
+- [x] 3.1.3: Embedded HTML Dashboard
 
 ### Phase 4: Documentation & Testing
-- [ ] 4.1.1: Wiring Documentation
-- [ ] 4.1.2: Installation Guide
-- [ ] 4.1.3: Integration Testing
+- [x] 4.1.1: Wiring Documentation (Mermaid diagrams in README)
+- [x] 4.1.2: Installation Guide (README complete)
+- [ ] 4.1.3: Integration Testing (requires hardware)
 
-**Current**: Phase 0
-**Next**: 0.1.1
+**Current**: Phase 4 - Awaiting hardware testing
+**Next**: 4.1.3 (Integration Testing)
 
 ---
 
@@ -140,9 +140,12 @@ git status
 ---
 
 **Completion Notes**:
-- **Implementation**: (describe what was done)
-- **Files Created**: (list with line counts)
-- **Branch**: feature/0.1-project-setup
+- **Implementation**: Git initialized, .gitignore created with ESP32/Arduino ignores, initial commit with all project files
+- **Files Created**:
+  - `.gitignore` - 22 lines
+  - `README.md` - 258 lines (with Mermaid diagrams)
+- **Branch**: main
+- **Date**: 2024-12-28
 
 ---
 
