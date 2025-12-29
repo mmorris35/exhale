@@ -39,59 +39,111 @@ A smart ventilation controller that monitors CO2 levels and automatically activa
 
 **PoE Switch**: Any 802.3af (PoE) or 802.3at (PoE+) switch will work. The ESP32-POE-ISO draws about 3W.
 
+## System Architecture
+
+```mermaid
+flowchart TB
+    subgraph Power["Power over Ethernet"]
+        POE[PoE Switch/Injector]
+    end
+
+    subgraph MCU["Olimex ESP32-POE-ISO"]
+        ETH[Ethernet PHY]
+        CPU[ESP32 CPU]
+        I2C[I2C Bus]
+        GPIO[GPIO4]
+    end
+
+    subgraph Sensors["Environmental Sensing"]
+        SCD40[SCD-40 CO2 Sensor]
+    end
+
+    subgraph Control["Fan Control"]
+        RELAY[10A Relay Module]
+        FAN[110V Exhaust Fan]
+    end
+
+    POE -->|"Cat5/6 Cable"| ETH
+    ETH --> CPU
+    CPU --> I2C
+    I2C -->|"SDA: GPIO13\nSCL: GPIO16"| SCD40
+    CPU --> GPIO
+    GPIO -->|"3.3V Logic"| RELAY
+    RELAY -->|"NO Contact"| FAN
+```
+
 ## Wiring Diagram
 
+```mermaid
+flowchart LR
+    subgraph ESP32["ESP32-POE-ISO"]
+        direction TB
+        RJ45[RJ45 PoE]
+        UEXT[UEXT Connector]
+        G4[GPIO4]
+        V33[3.3V]
+        GND1[GND]
+    end
+
+    subgraph SCD40["SCD-40 Sensor"]
+        direction TB
+        VIN[VIN]
+        GND2[GND]
+        SCL[SCL]
+        SDA[SDA]
+    end
+
+    subgraph RELAY["Relay Module"]
+        direction TB
+        IN[IN]
+        VCC[VCC]
+        GND3[GND]
+        COM[COM]
+        NO[NO]
+    end
+
+    subgraph AC["110V AC Circuit"]
+        direction TB
+        BRK[Breaker]
+        FANH[Fan Hot]
+        FANN[Fan Neutral]
+        FANG[Fan Ground]
+    end
+
+    V33 --> VIN
+    GND1 --> GND2
+    UEXT -->|"GPIO16"| SCL
+    UEXT -->|"GPIO13"| SDA
+
+    G4 --> IN
+    V33 --> VCC
+    GND1 --> GND3
+
+    BRK -->|"Hot/Black"| COM
+    NO -->|"Switched Hot"| FANH
+    BRK -->|"Neutral/White"| FANN
+    BRK -->|"Ground/Green"| FANG
 ```
-                    OLIMEX ESP32-POE-ISO
-                   +--------------------+
-                   |                    |
-    PoE Ethernet --| RJ45    [ETH]      |
-    (Power + Data) |                    |
-                   |    UEXT CONNECTOR  |
-                   |  +---------------+ |
-                   |  | 1  2  3  4  5 | |
-                   |  | 6  7  8  9 10 | |
-                   |  +---------------+ |
-                   |                    |
-                   |  GPIO4 (Relay) ----+---> Relay Module IN
-                   |  3.3V  ------------|---> Relay Module VCC
-                   |  GND   ------------|---> Relay Module GND
-                   +--------------------+
 
-    UEXT Pinout (directly wire or use STEMMA QT adapter):
-    Pin 1: 3.3V     Pin 2: GND
-    Pin 3: TXD      Pin 4: RXD
-    Pin 5: SCL (GPIO16)   <---- SCD-40 SCL (Yellow)
-    Pin 6: SDA (GPIO13)   <---- SCD-40 SDA (Blue)
-    Pin 7: MISO     Pin 8: MOSI
-    Pin 9: SCK      Pin 10: CS
+### Pin Reference
 
-    SCD-40 SENSOR (STEMMA QT):
-    +--------+
-    | VIN  --+---> 3.3V (from UEXT or ESP32)
-    | GND  --+---> GND
-    | SCL  --+---> GPIO16 (UEXT Pin 5)
-    | SDA  --+---> GPIO13 (UEXT Pin 6)
-    +--------+
+| ESP32-POE-ISO | Function | Connection |
+|---------------|----------|------------|
+| GPIO13 | I2C SDA | SCD-40 SDA (Blue) |
+| GPIO16 | I2C SCL | SCD-40 SCL (Yellow) |
+| GPIO4 | Relay Control | Relay IN |
+| 3.3V | Power | SCD-40 VIN, Relay VCC |
+| GND | Ground | SCD-40 GND, Relay GND |
 
-    RELAY MODULE (Example: SRD-05VDC-SL-C):
-    +------------+
-    |  IN  <-----+---- GPIO4
-    |  VCC <-----+---- 3.3V or 5V
-    |  GND <-----+---- GND
-    |            |
-    |  COM ------+---- Hot (Black) from breaker
-    |  NO  ------+---- Hot (Black) to Fan
-    |  NC  ------+---- (unused)
-    +------------+
+### UEXT Connector Pinout
 
-    110V AC WIRING (Fan Circuit):
-    
-    Breaker ----[HOT/BLACK]----> Relay COM
-                                 Relay NO -----> Fan Hot
-    Breaker ----[NEUTRAL/WHITE]--------------> Fan Neutral
-    Breaker ----[GROUND/GREEN]---------------> Fan Ground
-```
+| Pin | Function | Pin | Function |
+|-----|----------|-----|----------|
+| 1 | 3.3V | 2 | GND |
+| 3 | TXD | 4 | RXD |
+| 5 | SCL (GPIO16) | 6 | SDA (GPIO13) |
+| 7 | MISO | 8 | MOSI |
+| 9 | SCK | 10 | CS |
 
 ## Important Safety Warnings
 
@@ -185,6 +237,19 @@ See `docs/TAILNET_SETUP.md` for detailed instructions.
 ### Hysteresis Explained
 
 The ON/OFF thresholds create hysteresis to prevent rapid cycling:
+
+```mermaid
+stateDiagram-v2
+    [*] --> FanOFF
+    FanOFF --> FanON : CO2 >= 1000 ppm
+    FanON --> FanOFF : CO2 <= 800 ppm
+    FanON --> FanON : CO2 > 800 ppm
+    FanOFF --> FanOFF : CO2 < 1000 ppm
+
+    note right of FanOFF : Fan stays OFF while\nCO2 < ON threshold
+    note right of FanON : Fan stays ON until\nCO2 drops below OFF threshold
+```
+
 - Fan turns **ON** when CO2 rises above ON threshold (1000 ppm)
 - Fan stays **ON** until CO2 drops below OFF threshold (800 ppm)
 - This 200 ppm gap prevents the fan from toggling every few seconds
