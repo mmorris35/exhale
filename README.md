@@ -39,6 +39,21 @@ A smart ventilation controller that monitors CO2 levels and automatically activa
 
 **PoE Switch**: Any 802.3af (PoE) or 802.3at (PoE+) switch will work. The ESP32-POE-ISO draws about 3W.
 
+### Quick Shopping Links
+
+**Adafruit:**
+- [SCD-40 CO2 Sensor #5187](https://www.adafruit.com/product/5187) - $49.50
+- [STEMMA QT Cable 100mm #4210](https://www.adafruit.com/product/4210) - $0.95
+- [STEMMA QT Cable 200mm #4399](https://www.adafruit.com/product/4399) - $1.25 (optional, longer reach)
+
+**Olimex:**
+- [ESP32-POE-ISO](https://www.olimex.com/Products/IoT/ESP32/ESP32-POE-ISO/open-source-hardware) - ~$28
+
+**Amazon/General:**
+- 10A Relay Module - Search "3.3V relay module optocoupler" (~$5)
+- 802.3af PoE Switch or Injector (~$20+)
+- Project Enclosure - NEMA rated if near moisture (~$10)
+
 ## Schematic Diagrams
 
 ### System Overview
